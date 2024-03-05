@@ -1,27 +1,29 @@
 {
-    "logLocation": "./dscleanup.log",
-    "deleteTasks" :  false,
-    "qbt": {
-        "username": "admin",
-        "password": "adminadmin",
-        "url": "http://127.0.0.1:8090/api/v2"
+  "logLocation": "./dscleanup.log",
+  "deleteTasks": false,
+  "delete_task_not_file_tags": [ "cross-seed" ],
+  "delete_task_not_file_categories": [ "cross-seed" ],
+  "qbt": {
+    "username": "admin",
+    "password": "adminadmin",
+    "url": "http://127.0.0.1:8090/api/v2"
+  },
+  "trackers": [
+    {
+      "tracker": "tvchaos",
+      "maxDaysToKeep": 365,
+      "deleteMessages": [
+        "unregistered torrent"
+      ]
     },
-    "trackers": [
-        {
-            "tracker": "tvchaos",
-            "maxDaysToKeep": 365,
-            "deleteMessages" : [
-                "unregistered torrent"
-            ]
-        },
-        {
-            "tracker": "*",
-            "maxDaysToKeep": 0
-        }
-    ],
-    "rssfeeds": [
-        { "url": "https://tvchaosuk.com/rss/myfeedid" }
-    ],
+    {
+      "tracker": "*",
+      "maxDaysToKeep": 0
+    }
+  ],
+  "rssfeeds": [
+    { "url": "https://tvchaosuk.com/rss/myfeedid" }
+  ],
   "email": {
     "smtpserver": "mail3.gridhost.co.uk",
     "smtpport": 465,

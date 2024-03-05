@@ -40,6 +40,7 @@ namespace QbtManager
             public DateTime added_on { get; set; }
             public DateTime completed_on { get; set; }
             public List<Tracker> trackers { get; set; }
+            public string tags { get; set; }
 
             public override string ToString()
 			{
@@ -131,15 +132,29 @@ namespace QbtManager
         /// <summary>
         /// Delete a list of torrents via hash
         /// </summary>
-        /// <param name="taskIds"></param>
+        /// <param name="taskIds">Id of task</param>
+        /// <param name="deletefile">If true also delete the file on disk</param>
         /// <returns></returns>
-        public bool DeleteTask( string[] taskIds, bool deleteFiles )
+        public bool DeleteTask( IEnumerable<ToDeleteHashes> toDeletes)
         {
+            var res = true;
             var parms = new Dictionary<string, string>();
 
-            parms["hashes"] = string.Join("|", taskIds);
-            parms["deleteFiles"] = deleteFiles ? "true" : "false";
-            return ExecuteCommand("/torrents/delete", parms);
+            var deleteAlls = toDeletes.Where(x => x.deletemethod == DeleteMethod.DeleteFileAndTask);
+            var deleteTaskOnlys = toDeletes.Where(x => x.deletemethod == DeleteMethod.DeleteTask);
+
+            if (deleteAlls.Any()) {
+                parms["hashes"] = string.Join("|", deleteAlls.Select(x=>x.hash));
+                parms["deleteFiles"] = "true";
+                res = ExecuteCommand("/torrents/delete", parms);
+            }
+            if (deleteTaskOnlys.Any())
+            {
+                parms["hashes"] = string.Join("|", deleteTaskOnlys.Select(x => x.hash));
+                parms["deleteFiles"] = "false";
+                res &= ExecuteCommand("/torrents/delete", parms);
+            }
+            return res;
         }
 
         /// <summary>
@@ -203,6 +218,7 @@ namespace QbtManager
             parms["hashes"] = string.Join("|", taskIds);
             parms["ratioLimit"] = maxRatio.ToString();
             parms["seedingTimeLimit"] = maxSeedingTime.ToString();
+            parms["inactiveSeedingTimeLimit"] = "-1"; // new parameter https://github.com/qbittorrent/qBittorrent/pull/19294
             Utils.Log("Setting Limits to ratio " + parms["ratioLimit"] + " seeding time " + parms["seedingTimeLimit"] + " for " + taskIds.Length.ToString() + " tasks ");
             return ExecuteCommand("/torrents/setShareLimits", parms);
         }
@@ -282,7 +298,6 @@ namespace QbtManager
                     {
                         JsonSerializerOptions options = new JsonSerializerOptions();
                         options.Converters.Add(new UnixToNullableDateTimeConverter());
-
                         T response = JsonSerializer.Deserialize<T>(queryResult.Content, options);
 
                         if (response != null)

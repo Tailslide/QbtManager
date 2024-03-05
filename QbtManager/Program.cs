@@ -7,6 +7,7 @@ using static QbtManager.qbtService;
 using System.ServiceModel.Syndication;
 using System.Xml;
 using QBTCleanup;
+using System.Threading.Tasks;
 
 namespace QbtManager
 {
@@ -139,12 +140,36 @@ namespace QbtManager
             return false;
         }
 
+        private static bool IsDeleteTaskOnlyCategory(Torrent task, Settings settings)
+        {
+            if (settings.delete_task_not_file_categories.Any(x => x.ToUpper() == task.category.ToUpper()))
+            {
+                Utils.Log($" - Only deleting Task not File with Category {task.category} : {task}");
+                return true;
+            }
+            else
+                return false;
+        }
+
+        private static bool IsDeleteTaskOnlyTag(Torrent task, Settings settings)
+        {
+            var tags = task.tags.Split(',');
+            var matching = settings.delete_task_not_file_tags.FirstOrDefault(x => tags.Any(y => y.ToUpper() == x.ToUpper()));
+            if (matching != null)
+            {
+                Utils.Log($" - Only deleting Task not File with Tag {matching} : {task}");
+                return true;
+            }
+            else
+                return false;
+        }
+
         private static void ProcessTorrents(qbtService service, IList<Torrent> tasks, Settings settings )
         {
             Utils.Log("Processing torrent list...");
 
             var toKeep = new List<Torrent>();
-            var toDelete = new List<Torrent>();
+            var toDelete = new List<ToDelete>();
             var limits = new Dictionary<Torrent, int>();
             var maxLimits = new Dictionary<Torrent, (float,int)>(); // max ratio, seeding time. API requires they both get set at once
 
@@ -167,7 +192,7 @@ namespace QbtManager
                     toKeep.Add(task);
                     Utils.Log($" - Keep: {task}");
 
-                    if( tracker != null && tracker.up_limit.HasValue && task.up_limit != tracker.up_limit)
+                    if (tracker != null && tracker.up_limit.HasValue && task.up_limit != tracker.up_limit)
                     {
                         // Store the tracker limits.
                         limits[task] = tracker.up_limit.Value;
@@ -197,17 +222,36 @@ namespace QbtManager
                 }
                 else
                 {
-                    if( ! settings.deleteTasks && task.state.StartsWith( "pause" ) )
+                    if (!settings.deleteTasks && task.state.StartsWith("pause"))
                     {
                         Utils.Log($" - Already paused: {task}");
-
                         // Nothing to do, so skip.
                         continue;
                     }
-
-                    toDelete.Add(task);
-                    var action = settings.deleteTasks ? "Delete" : "Pause";
-                    Utils.Log($" - {action}: {task}");
+                    if (!settings.deleteTasks)
+                    {
+                        Utils.Log($" - Pause: {task}");
+                        toDelete.Add(new ToDelete(task, DeleteMethod.PauseTask));
+                    }
+                    if (!settings.deleteFiles)
+                    {
+                        Utils.Log($" - Delete Task Only: {task}");
+                        toDelete.Add(new ToDelete(task, DeleteMethod.DeleteTask));
+                    }
+                    else
+                    {
+                        bool deleteTaskOnly = (IsDeleteTaskOnlyCategory(task, settings) || IsDeleteTaskOnlyTag(task, settings));
+                        if (deleteTaskOnly)
+                        {
+                            Utils.Log($" - Delete Task Only: {task}");
+                            toDelete.Add(new ToDelete(task, DeleteMethod.DeleteTask));
+                        }
+                        else
+                        {
+                            Utils.Log($" - Delete Task and File: {task}");
+                            toDelete.Add(new ToDelete(task, DeleteMethod.DeleteFileAndTask));
+                        }
+                    }
                 }
             }
 
@@ -219,7 +263,6 @@ namespace QbtManager
                 {
                     int limit = x.Key;
                     var hashes = x.Select(t => t.hash).ToArray();
-
                     if (!service.SetUploadLimit(hashes, limit))
                         Utils.Log($"Failed to set upload limits.");
                 }
@@ -235,7 +278,6 @@ namespace QbtManager
                     int time_limit = x.Key.Item2;
 
                     var hashes = x.Select(t => t.hash).ToArray();
-
                     if (!service.SetMaxLimits(hashes, ratio_limit, time_limit))
                         Utils.Log($"Failed to set max ratio and time limit.");
                 }
@@ -243,25 +285,28 @@ namespace QbtManager
 
             if (toDelete.Any())
             {
-                var deleteHashes = toDelete.Select(x => x.hash)
+                var hashes = toDelete.Select(x => new ToDeleteHashes() {  hash= x.task.hash, deletemethod= x.deleteMethod})
                                            .Distinct()
                                            .ToArray();
+                var deleteHashes = hashes.Where(x => x.deletemethod == DeleteMethod.DeleteFile || x.deletemethod == DeleteMethod.DeleteTask || x.deletemethod== DeleteMethod.DeleteFileAndTask);
+                var pauseHashes = hashes.Where(x => x.deletemethod == DeleteMethod.PauseTask);
 
-                if (settings.deleteTasks)
+                if (settings.deleteTasks && deleteHashes.Any())
                 {
                     Utils.Log($"Deleting {deleteHashes.Count()} tasks...");
-                    service.DeleteTask(deleteHashes, settings.deleteFiles);
+                    service.DeleteTask(deleteHashes);
                 }
-                else
+
+                if (pauseHashes.Any())
                 {
-                    Utils.Log($"Pausing {deleteHashes.Count()} tasks...");
-                    service.PauseTask(deleteHashes);
+                    Utils.Log($"Pausing {pauseHashes.Count()} tasks...");
+                    service.PauseTask(pauseHashes.Select(x=>x.hash).ToArray());
                 }
 
                 if (settings.email != null)
                 {
                     Utils.Log("Sending alert email.");
-                    Utils.SendAlertEmail(settings.email, toDelete);
+                    Utils.SendAlertEmail(settings.email, toDelete.Select(x=>x.task));
                 }
             }
             else
