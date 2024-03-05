@@ -8,6 +8,8 @@ using System.ServiceModel.Syndication;
 using System.Xml;
 using QBTCleanup;
 using System.Threading.Tasks;
+using System.Reflection;
+
 
 namespace QbtManager
 {
@@ -74,7 +76,9 @@ namespace QbtManager
             var settingPath = args.Where(p => p.EndsWith(".json", StringComparison.OrdinalIgnoreCase)).FirstOrDefault();
 
             LogHandler.InitLogs();
-
+            var assemblyVersion = Assembly.GetExecutingAssembly().GetName().Version;
+            Utils.Log($"QbtManager Version: {assemblyVersion}");
+            
             if (string.IsNullOrEmpty(settingPath))
                 settingPath = "Settings.json";
 

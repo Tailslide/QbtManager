@@ -28,6 +28,9 @@ strings listed here will result in the torrent being deleted if the tracker mess
 matches them. This can be particularly useful when a tracker drops a torrent - e.g., if it's
 been repacked, and the individual torrent is no longer valid. 
 
+The `delete_task_not_file_tags` will prevent torrents with the given tags from having their files deleted.
+The `delete_task_not_file_categories` will prevent torrents with the given categories from having their files deleted.
+
 The QBT password field is optional. If you leave it out, you will need to change the settings
 in QBT to include the subnet where this tool is running to be excluded from authentication.
 
@@ -36,6 +39,8 @@ in QBT to include the subnet where this tool is running to be excluded from auth
     "logLocation": "./dscleanup.log",
     "deleteTasks": true,
     "deleteFiles": false,
+    "delete_task_not_file_tags": [ "cross-seed" ],
+    "delete_task_not_file_categories": [ "cross-seed" ],
     "qbt": {
       "username": "admin",
       "password": "sekritpasswd",
