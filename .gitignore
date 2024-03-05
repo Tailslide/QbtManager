@@ -371,3 +371,4 @@ MigrationBackup/
 *.db
 *.zip
 .DS_Store
+/QbtManager/Settings.json
