@@ -1,14 +1,9 @@
-﻿using System;
-using System.IO;
-using System.Collections.Generic;
-using System.Linq;
+﻿using QBTCleanup;
 using QBTManager.Logging;
-using static QbtManager.qbtService;
+using System.Reflection;
 using System.ServiceModel.Syndication;
 using System.Xml;
-using QBTCleanup;
-using System.Threading.Tasks;
-using System.Reflection;
+using static QbtManager.qbtService;
 
 
 namespace QbtManager
@@ -43,15 +38,15 @@ namespace QbtManager
 
         private static readonly List<string> downloadedStates = new List<string> { "uploading", "pausedUP", "queuedUP", "stalledUP", "checkingUP", "forcedUP" };
 
-        protected static bool IsDeletable( Torrent task, Tracker tracker )
+        protected static bool IsDeletable( Torrent task, Tracker tracker, out string reason )
         {
             bool canDelete = false;
-
+            reason = "";
             if (downloadedStates.Contains(task.state))
             {
                 canDelete = true;
 
-                if( tracker != null )
+                if (tracker != null)
                 {
                     // If the torrent is > 90 days old, delete
                     var age = DateTime.Now - task.added_on;
@@ -59,10 +54,11 @@ namespace QbtManager
                     if (tracker.maxDaysToKeep == -1 || age.TotalDays < tracker.maxDaysToKeep)
                         canDelete = false;
                     else
-                        Utils.Log("Task {0} deleted - too old", task.name);
+                        reason = "too old";
                 }
                 else
-                    Utils.Log("Task {0} deleted - wrong tracker", task.name);
+                    reason = "wrong tracker";
+                        //Utils.Log("Task {0} deleted - wrong tracker", task.name);
 
             }
 
@@ -144,23 +140,27 @@ namespace QbtManager
             return false;
         }
 
-        private static bool IsDeleteTaskOnlyCategory(Torrent task, Settings settings)
+        private static bool IsDeleteTaskOnlyCategory(Torrent task, Settings settings, out string reason)
         {
+            reason = "";
             if (settings.delete_task_not_file_categories.Any(x => x.ToUpper() == task.category.ToUpper()))
             {
-                Utils.Log($" - Only deleting Task not File with Category {task.category} : {task}");
+                reason = $"Category={task.category}";
+                //Utils.Log($" - Only deleting Task not File with Category {task.category} : {task}");
                 return true;
             }
             else
                 return false;
         }
 
-        private static bool IsDeleteTaskOnlyTag(Torrent task, Settings settings)
+        private static bool IsDeleteTaskOnlyTag(Torrent task, Settings settings, out string reason)
         {
+            reason = "";
             var tags = task.tags.Split(',');
             var matching = settings.delete_task_not_file_tags.FirstOrDefault(x => tags.Any(y => y.ToUpper() == x.ToUpper()));
             if (matching != null)
             {
+                reason = $"Tags Contains {matching}";
                 Utils.Log($" - Only deleting Task not File with Tag {matching} : {task}");
                 return true;
             }
@@ -181,14 +181,17 @@ namespace QbtManager
             {
                 bool keepTask = true;
                 var tracker = FindTaskTracker(task, settings);
-
+                string deleteReason = "";
                 if (tracker != null)
                 {
-                    if (IsDeletable(task, tracker))
+                    if (IsDeletable(task, tracker, out deleteReason))
                         keepTask = false;
 
-                    if( TrackerMsgIsDeletable( task, tracker ) )
+                    if (TrackerMsgIsDeletable(task, tracker))
+                    {
+                        deleteReason += $" torrent contains delete message for tracker";
                         keepTask = false;
+                    }
                 }
 
                 if (keepTask)
@@ -228,31 +231,32 @@ namespace QbtManager
                 {
                     if (!settings.deleteTasks && task.state.StartsWith("pause"))
                     {
-                        Utils.Log($" - Already paused: {task}");
+                        Utils.Log($" - Already paused: {task} Reason:{deleteReason}");
                         // Nothing to do, so skip.
                         continue;
                     }
                     if (!settings.deleteTasks)
                     {
-                        Utils.Log($" - Pause: {task}");
+                        Utils.Log($" - Pause: {task} Reason:{deleteReason}");
                         toDelete.Add(new ToDelete(task, DeleteMethod.PauseTask));
                     }
                     if (!settings.deleteFiles)
                     {
-                        Utils.Log($" - Delete Task Only: {task}");
+                        Utils.Log($" - Delete Task Only: {task} Reason:{deleteReason}");
                         toDelete.Add(new ToDelete(task, DeleteMethod.DeleteTask));
                     }
                     else
                     {
-                        bool deleteTaskOnly = (IsDeleteTaskOnlyCategory(task, settings) || IsDeleteTaskOnlyTag(task, settings));
+                        string deleteTaskOnlyReason = "";
+                        bool deleteTaskOnly = (IsDeleteTaskOnlyCategory(task, settings, out deleteTaskOnlyReason) || IsDeleteTaskOnlyTag(task, settings, out deleteTaskOnlyReason));
                         if (deleteTaskOnly)
                         {
-                            Utils.Log($" - Delete Task Only: {task}");
+                            Utils.Log($" - Delete Task Only: {task} Reason:{deleteReason} Don't Delete Files Reason:{deleteTaskOnlyReason}");
                             toDelete.Add(new ToDelete(task, DeleteMethod.DeleteTask));
                         }
                         else
                         {
-                            Utils.Log($" - Delete Task and File: {task}");
+                            Utils.Log($" - Delete Task and File: {task} Reason:{deleteReason} {deleteTaskOnlyReason}");
                             toDelete.Add(new ToDelete(task, DeleteMethod.DeleteFileAndTask));
                         }
                     }
