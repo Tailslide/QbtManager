@@ -8,6 +8,8 @@ using System.Buffers;
 using System.Buffers.Text;
 using System.Diagnostics;
 using System.Text.Json.Serialization;
+using System.Text;
+using System.Security.Cryptography;
 
 namespace QbtManager
 {
@@ -127,6 +129,14 @@ namespace QbtManager
             }
 
             return data;
+        }
+
+        public IList<TorrentFile> GetTorrentFiles(string hash)
+        {
+            // Assuming a File class that represents a file within a torrent
+            var files = MakeRestRequest<List<TorrentFile>>($"/torrents/files?hash={hash}", new Dictionary<string, string>());
+
+            return files ?? new List<TorrentFile>();
         }
 
         /// <summary>
@@ -317,6 +327,56 @@ namespace QbtManager
             }
 
             return default(T);
+        }
+
+
+
+        public string GenerateTorrentFileHash(string torrentHash)
+        {
+            // Fetch the files for the given torrent
+            IList<TorrentFile> files = GetTorrentFiles(torrentHash);
+
+            // Combine file names and sizes into a single string
+            StringBuilder combined = new StringBuilder();
+            foreach (var file in files.OrderBy(f => f.Name))
+            {
+                combined.Append($"{file.Name}{file.Size}");
+            }
+
+            // Convert the combined string to bytes
+            byte[] combinedBytes = Encoding.UTF8.GetBytes(combined.ToString());
+
+            // Compute the SHA256 hash of this byte array
+            using (SHA256 sha256 = SHA256.Create())
+            {
+                byte[] hashBytes = sha256.ComputeHash(combinedBytes);
+
+                // Convert the byte array to a hex string
+                StringBuilder hash = new StringBuilder();
+                foreach (byte b in hashBytes)
+                {
+                    hash.Append(b.ToString("x2"));
+                }
+                if (hash.ToString() =="5feceb66ffc86f38d952786c6d696c79c2dbc239dd4e91b46729d73a27fb57e9")
+                {
+                    Debug.WriteLine("hash found");
+                }
+                return hash.ToString();
+            }
+        }
+        public class TorrentFile
+        {
+            [JsonPropertyName("name")]
+            public string Name { get; set; }
+
+            [JsonPropertyName("size")]
+            public long Size { get; set; }
+
+            public TorrentFile(string name, long size)
+            {
+                Name = name;
+                Size = size;
+            }
         }
 
         public class UnixToNullableDateTimeConverter : JsonConverter<DateTime>

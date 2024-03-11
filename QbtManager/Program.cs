@@ -10,6 +10,7 @@ namespace QbtManager
 {
     public class MainClass
     {
+        private static Dictionary<Torrent, string> tasksFileHashes = new Dictionary<Torrent, string>();
         /// <summary>
         /// Given a task, see which tracker in the settings matches it.
         /// </summary>
@@ -110,6 +111,19 @@ namespace QbtManager
                     var tasks = service.GetTasks()
                                        .OrderBy(x => x.name)
                                        .ToList();
+
+                    if (settings.delete_task_not_file_if_other_tasks)
+                    {
+                        Utils.Log("Creating hashes for all torrent file sizes and names");
+                        foreach (var t in tasks)
+                        {
+                            if (t != null)
+                            {
+                                string filehash = service.GenerateTorrentFileHash(t.hash);
+                                tasksFileHashes[t] = filehash;
+                            }
+                        }
+                    }
 
                     ProcessTorrents(service, tasks, settings);
 
@@ -253,6 +267,29 @@ namespace QbtManager
                         {
                             Utils.Log($" - Delete Task Only: {task} Reason:{deleteReason} Don't Delete Files Reason:{deleteTaskOnlyReason}");
                             toDelete.Add(new ToDelete(task, DeleteMethod.DeleteTask));
+                        }
+                        else if (settings.delete_task_not_file_if_other_tasks && tasks.Count(x => x.hash == task.hash) > 1)
+                        {
+                            Utils.Log($" - Delete Task Only: {task} Reason:{deleteReason} Don't Delete Files Reason: Another torrent has same hash");
+                            toDelete.Add(new ToDelete(task, DeleteMethod.DeleteTask));
+
+                        }
+                        else if (settings.delete_task_not_file_if_other_tasks && tasksFileHashes.ContainsKey(task) && tasksFileHashes.Count(x => x.Value == tasksFileHashes[task]) > 1)
+                        {
+                            var otherTasksWithSameFiles = tasksFileHashes.Where(x => x.Value == tasksFileHashes[task] && x.Key != task);
+                            Torrent firstTask = otherTasksWithSameFiles.First().Key;
+
+                            if (toDelete.Any(x => tasksFileHashes[x.task] == tasksFileHashes[task]))
+                            {
+                                Utils.Log($" - Skipping delete of: {task} Reason: a task with the same files and sizes is already marked for removal");
+                                toDelete.Add(new ToDelete(task, DeleteMethod.DeleteTask));
+
+                            }
+                            else
+                            {
+                                Utils.Log($" - Delete Task Only: {task} Reason:{deleteReason} Don't Delete Files Reason: Another torrent uses the same files: {firstTask.name}");
+                                toDelete.Add(new ToDelete(task, DeleteMethod.DeleteTask));
+                            }
                         }
                         else
                         {

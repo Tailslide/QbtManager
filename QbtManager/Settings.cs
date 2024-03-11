@@ -85,6 +85,8 @@ namespace QbtManager
         [DataMember]
         public bool deleteFiles = false;
         [DataMember]
+        public bool delete_task_not_file_if_other_tasks = false;
+        [DataMember]
         public List<string> delete_task_not_file_tags { get; set; }
         [DataMember]
         public List<string> delete_task_not_file_categories { get; set; }

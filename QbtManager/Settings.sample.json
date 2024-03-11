@@ -1,6 +1,7 @@
 {
   "logLocation": "./dscleanup.log",
   "deleteTasks": false,
+  "delete_task_not_file_if_other_tasks": true,
   "delete_task_not_file_tags": [ "cross-seed" ],
   "delete_task_not_file_categories": [ "cross-seed" ],
   "qbt": {
