@@ -32,6 +32,8 @@ namespace QbtManager
         public string password { get; set; }
         [DataMember]
         public string url { get; set; }
+        [DataMember]
+        public List<string> pruneExemptTags { get; set; } = new List<string>();
     }
 
     [DataContract]

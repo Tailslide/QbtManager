@@ -31,6 +31,8 @@ The `delete_task_not_file_if_other_tasks` will prevent a delete from removing th
 The `delete_task_not_file_tags` will prevent torrents with the given tags from having their files deleted.
 The `delete_task_not_file_categories` will prevent torrents with the given categories from having their files deleted.
 
+**New:** The `pruneExemptTags` property (in the `qbt` section) allows you to specify tags that will prevent a torrent from being pruned (paused or deleted). If a torrent has any of these tags, it will be skipped during pruning.
+
 The QBT password field is optional. If you leave it out, you will need to change the settings
 in QBT to include the subnet where this tool is running to be excluded from authentication.
 
@@ -45,7 +47,8 @@ in QBT to include the subnet where this tool is running to be excluded from auth
     "qbt": {
       "username": "admin",
       "password": "sekritpasswd",
-      "url": "http://192.168.1.30:8090/api/v2"
+      "url": "http://192.168.1.30:8090/api/v2",
+      "pruneExemptTags": [ "do-not-prune", "archive", "important" ]
     },
     "trackers": [
       {
@@ -76,4 +79,3 @@ in QBT to include the subnet where this tool is running to be excluded from auth
       "toname": "Joe Smith"
     }
   }
-```

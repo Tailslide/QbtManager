@@ -184,6 +184,24 @@ namespace QbtManager
                 return false;
         }
 
+        private static bool IsPruneExemptTag(Torrent task, Settings settings, out string reason)
+        {
+            reason = "";
+            if (settings.qbt.pruneExemptTags == null || settings.qbt.pruneExemptTags.Count == 0)
+                return false;
+            if (string.IsNullOrWhiteSpace(task.tags))
+                return false;
+            var tags = task.tags.Split(',');
+            var matching = settings.qbt.pruneExemptTags.FirstOrDefault(x => tags.Any(y => y.Trim().Equals(x, StringComparison.OrdinalIgnoreCase)));
+            if (matching != null)
+            {
+                reason = $"Tags Contains prune-exempt tag: {matching}";
+                Utils.Log($" - Prune Exempt: {task} Tag: {matching}");
+                return true;
+            }
+            return false;
+        }
+
         private static void ProcessTorrents(qbtService service, IList<Torrent> tasks, Settings settings )
         {
             Utils.Log("Processing torrent list...");
@@ -198,6 +216,13 @@ namespace QbtManager
                 bool keepTask = true;
                 var tracker = FindTaskTracker(task, settings);
                 string deleteReason = "";
+                string pruneExemptReason = "";
+                if (IsPruneExemptTag(task, settings, out pruneExemptReason))
+                {
+                    toKeep.Add(task);
+                    Utils.Log($" - Keep (prune-exempt): {task} Reason: {pruneExemptReason}");
+                    continue;
+                }
                 if (tracker != null)
                 {
                     if (IsDeletable(task, tracker, out deleteReason))
