@@ -57,12 +57,16 @@ namespace QbtManager
         {
             settings = qbtSettings;
 
-            var options = new RestClientOptions
+            client = new RestClient(settings.url)
             {
-                CookieContainer = new CookieContainer(),
-                BaseUrl = new Uri( settings.url )
+                CookieContainer = new CookieContainer()
             };
-            client = new RestClient(options);
+            //var options = new RestClientOptions
+            //{
+            //    CookieContainer = new CookieContainer(),
+            //    BaseUrl = new Uri( settings.url )
+            //};
+            //client = new RestClient(options);
         }
 
         /// <summary>
@@ -76,7 +80,7 @@ namespace QbtManager
                 CookieContainer cookies = new CookieContainer();
                 Uri url = new Uri(settings.url + "/auth/login");
 
-                var request = new RestRequest("/auth/login", Method.Post);
+                var request = new RestRequest("/auth/login", Method.POST);
                 request.AddParameter("Referer", settings.url);  // url to the page I want to go
 
                 if (string.IsNullOrEmpty(settings.password))
@@ -265,7 +269,7 @@ namespace QbtManager
         /// <returns></returns>
         public bool ExecuteRequest( string requestMethod, IDictionary<string, string> parms )
         {
-            var request = new RestRequest(requestMethod, Method.Get);
+            var request = new RestRequest(requestMethod, Method.GET);
 
             foreach (var kvp in parms)
                 request.AddParameter(kvp.Key, kvp.Value);
@@ -288,7 +292,7 @@ namespace QbtManager
         /// <returns></returns>
         public bool ExecuteCommand(string requestMethod, IDictionary<string, string> parms)
         {
-            var request = new RestRequest(requestMethod, Method.Post);
+            var request = new RestRequest(requestMethod, Method.POST);
             
             foreach (var kvp in parms)
                 request.AddParameter(kvp.Key, kvp.Value, ParameterType.GetOrPost);
@@ -314,7 +318,7 @@ namespace QbtManager
         /// <returns></returns>
         public string MakeRestRequest(string requestMethod, IDictionary<string, string>? parms)
         {
-            var request = new RestRequest(requestMethod, Method.Get );
+            var request = new RestRequest(requestMethod, Method.GET );
 
             if (parms != null)
             {
@@ -356,7 +360,7 @@ namespace QbtManager
         /// <param name="parms"></param>
         /// <param name="method"></param>
         /// <returns></returns>
-        public T MakeRestRequest<T>(string requestMethod, IDictionary<string, string>? parms, Method method = Method.Get)
+        public T MakeRestRequest<T>(string requestMethod, IDictionary<string, string>? parms, Method method = Method.GET)
         {
             var request = new RestRequest(requestMethod, method );
 
@@ -382,12 +386,13 @@ namespace QbtManager
                         options.Converters.Add(new UnixToNullableDateTimeConverter());
                         T response = JsonSerializer.Deserialize<T>(queryResult.Content, options);
 
-                    if (response != null)
-                    {
-                        return response;
+                        if (response != null)
+                        {
+                            return response;
+                        }
+                        else
+                            Utils.Log("No response Data.");
                     }
-                    else
-                        Utils.Log("No response Data.");
                 }
             }
             catch (Exception ex)
