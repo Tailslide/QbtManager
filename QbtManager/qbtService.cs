@@ -95,7 +95,10 @@ namespace QbtManager
 
                 var response = client.Execute(request);
 
-                var sessionCookie = response.Cookies.SingleOrDefault(x => x.Name == "SID");
+                // qBittorrent renamed the WebUI session cookie from "SID" to "QBT_SID_<port>"
+                // in newer versions. Accept both so login works across versions.
+                var sessionCookie = response.Cookies.SingleOrDefault(x => x.Name == "SID"
+                    || x.Name.StartsWith("QBT_SID", StringComparison.OrdinalIgnoreCase));
                 if (sessionCookie != null)
                 {
                     client.CookieContainer.Add(new Cookie(sessionCookie.Name, sessionCookie.Value, sessionCookie.Path, sessionCookie.Domain));
