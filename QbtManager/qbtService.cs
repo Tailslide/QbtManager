@@ -10,6 +10,7 @@ using System.Diagnostics;
 using System.Text.Json.Serialization;
 using System.Text;
 using System.Security.Cryptography;
+using System.Globalization;
 
 namespace QbtManager
 {
@@ -257,9 +258,12 @@ namespace QbtManager
             var parms = new Dictionary<string, string>();
 
             parms["hashes"] = string.Join("|", taskIds);
-            parms["ratioLimit"] = maxRatio.ToString();
-            parms["seedingTimeLimit"] = maxSeedingTime.ToString();
+            parms["ratioLimit"] = maxRatio.ToString(CultureInfo.InvariantCulture);
+            parms["seedingTimeLimit"] = maxSeedingTime.ToString(CultureInfo.InvariantCulture);
             parms["inactiveSeedingTimeLimit"] = "-1"; // new parameter https://github.com/qbittorrent/qBittorrent/pull/19294
+            // qBittorrent 5.1+ requires shareLimitAction. "Default" = use the global
+            // action when a limit is reached, preserving the prior behaviour.
+            parms["shareLimitAction"] = "Default";
             Utils.Log("Setting Limits to ratio " + parms["ratioLimit"] + " seeding time " + parms["seedingTimeLimit"] + " for " + taskIds.Length.ToString() + " tasks ");
             return ExecuteCommand("/torrents/setShareLimits", parms);
         }
@@ -281,7 +285,7 @@ namespace QbtManager
 
             if (queryResult.StatusCode != HttpStatusCode.OK)
             {
-                Utils.Log($"ERROR: Request failed: {requestMethod}: {queryResult.ResponseStatus}");
+                Utils.Log($"ERROR: Request failed: {requestMethod}: {(int)queryResult.StatusCode} {queryResult.StatusCode} - {queryResult.Content}");
             }
 
             return queryResult.StatusCode == HttpStatusCode.OK;
@@ -304,7 +308,7 @@ namespace QbtManager
 
             if( queryResult.StatusCode != HttpStatusCode.OK )
             {
-                Utils.Log($"ERROR: Command failed: {requestMethod}: {queryResult.ResponseStatus}");
+                Utils.Log($"ERROR: Command failed: {requestMethod}: {(int)queryResult.StatusCode} {queryResult.StatusCode} - {queryResult.Content}");
             }
 
             return queryResult.StatusCode == HttpStatusCode.OK;
